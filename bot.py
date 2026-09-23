@@ -1,3 +1,4 @@
+
 """
 Bot de Afiliado - Mercado Livre
 --------------------------------
