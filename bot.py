@@ -63,7 +63,16 @@ def extrair_url_oficial(html: str) -> str | None:
     return None
 
 
+# Prioridade: o parâmetro item_id na URL é o anúncio real (o /p/MLB... do path é só o produto de catálogo)
+ITEM_ID_PARAM_REGEX = re.compile(r"item_id[=%3A]+(MLB-?\d{9,10})", re.IGNORECASE)
+
+
 def extrair_item_id(url: str) -> str | None:
+    # Prioriza o item_id do parâmetro (anúncio real) sobre o ID de catálogo (/p/MLB...) que aparece no path
+    match_param = ITEM_ID_PARAM_REGEX.search(url)
+    if match_param:
+        return match_param.group(1).replace("-", "").upper()
+
     match = ITEM_ID_REGEX.search(url)
     if not match:
         return None
