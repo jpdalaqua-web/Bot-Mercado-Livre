@@ -34,8 +34,9 @@ RESULTS_PER_KEYWORD = int(os.environ.get("RESULTS_PER_KEYWORD", "20"))
 SUBSCRIBER_FILE = "subscriber.json"
 SENT_ITEMS_FILE = "sent_items.json"
 
-# Extrai o ID do produto (formato MLB123456789) de qualquer link do Mercado Livre
-ITEM_ID_REGEX = re.compile(r"(MLB-?\d{8,12})", re.IGNORECASE)
+# Extrai o ID do produto (formato MLB1234567890, sempre 9-10 dígitos) de qualquer link do Mercado Livre
+# (?<!\d) e (?!\d) evitam pegar números concatenados por engano (ex: MLB123456789 grudado em outro número)
+ITEM_ID_REGEX = re.compile(r"(?<!\d)(MLB-?\d{9,10})(?!\d)", re.IGNORECASE)
 
 
 def resolver_link_curto(url: str) -> tuple[str, str]:
