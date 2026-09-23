@@ -38,6 +38,20 @@ SENT_ITEMS_FILE = "sent_items.json"
 ITEM_ID_REGEX = re.compile(r"(MLB-?\d{8,12})", re.IGNORECASE)
 
 
+def resolver_link_curto(url: str) -> str:
+    """Segue o redirecionamento de links curtos (meli.la, /sec/) até a URL final do produto."""
+    try:
+        resp = requests.head(url, allow_redirects=True, timeout=8)
+        return resp.url
+    except Exception:
+        try:
+            resp = requests.get(url, allow_redirects=True, timeout=8)
+            return resp.url
+        except Exception as e:
+            logger.warning(f"Não consegui resolver link curto {url}: {e}")
+            return url
+
+
 def extrair_item_id(url: str) -> str | None:
     match = ITEM_ID_REGEX.search(url)
     if not match:
@@ -226,6 +240,12 @@ async def processar_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     item_id = extrair_item_id(texto)
+
+    if not item_id:
+        # Pode ser um link curto (meli.la, /sec/) — tenta seguir o redirecionamento
+        url_final = resolver_link_curto(texto)
+        item_id = extrair_item_id(url_final)
+
     if not item_id:
         await update.message.reply_text(
             "Não consegui identificar o produto nesse link. "
