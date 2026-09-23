@@ -49,6 +49,19 @@ def resolver_link_curto(url: str) -> tuple[str, str]:
         return url, ""
 
 
+# Tenta achar a URL "oficial" da página (mais confiável que vasculhar o HTML inteiro)
+CANONICAL_REGEX = re.compile(r'<link[^>]+rel=["\']canonical["\'][^>]+href=["\']([^"\']+)["\']', re.IGNORECASE)
+OG_URL_REGEX = re.compile(r'<meta[^>]+property=["\']og:url["\'][^>]+content=["\']([^"\']+)["\']', re.IGNORECASE)
+
+
+def extrair_url_oficial(html: str) -> str | None:
+    for regex in (CANONICAL_REGEX, OG_URL_REGEX):
+        match = regex.search(html)
+        if match:
+            return match.group(1)
+    return None
+
+
 def extrair_item_id(url: str) -> str | None:
     match = ITEM_ID_REGEX.search(url)
     if not match:
@@ -242,8 +255,15 @@ async def processar_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Pode ser um link curto (meli.la, /sec/) — segue o redirecionamento
         url_final, html_pagina = resolver_link_curto(texto)
         item_id = extrair_item_id(url_final)
+
         if not item_id and html_pagina:
-            # Às vezes o ID só aparece dentro do conteúdo da página, não na URL final
+            # Prioriza a URL "oficial" da página (mais confiável que vasculhar o HTML inteiro)
+            url_oficial = extrair_url_oficial(html_pagina)
+            if url_oficial:
+                item_id = extrair_item_id(url_oficial)
+
+        if not item_id and html_pagina:
+            # Último recurso: procura qualquer código MLB no HTML inteiro
             item_id = extrair_item_id(html_pagina)
 
     if not item_id:
@@ -257,7 +277,7 @@ async def processar_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     produto = buscar_produto(item_id)
     if not produto or produto["preco_atual"] is None:
-        await update.message.reply_text("Não consegui puxar os dados desse produto. Confere o link e tenta de novo.")
+        await update.message.reply_text(f"Não consegui puxar os dados desse produto (ID identificado: {item_id}). Confere o link e tenta de novo.")
         return
 
     post = montar_texto(produto, texto)
