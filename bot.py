@@ -38,18 +38,15 @@ SENT_ITEMS_FILE = "sent_items.json"
 ITEM_ID_REGEX = re.compile(r"(MLB-?\d{8,12})", re.IGNORECASE)
 
 
-def resolver_link_curto(url: str) -> str:
-    """Segue o redirecionamento de links curtos (meli.la, /sec/) até a URL final do produto."""
+def resolver_link_curto(url: str) -> tuple[str, str]:
+    """Segue o redirecionamento de links curtos (meli.la, /sec/) e retorna (url_final, html_da_pagina)."""
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     try:
-        resp = requests.head(url, allow_redirects=True, timeout=8)
-        return resp.url
-    except Exception:
-        try:
-            resp = requests.get(url, allow_redirects=True, timeout=8)
-            return resp.url
-        except Exception as e:
-            logger.warning(f"Não consegui resolver link curto {url}: {e}")
-            return url
+        resp = requests.get(url, allow_redirects=True, timeout=10, headers=headers)
+        return resp.url, resp.text
+    except Exception as e:
+        logger.warning(f"Não consegui resolver link curto {url}: {e}")
+        return url, ""
 
 
 def extrair_item_id(url: str) -> str | None:
@@ -242,9 +239,12 @@ async def processar_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     item_id = extrair_item_id(texto)
 
     if not item_id:
-        # Pode ser um link curto (meli.la, /sec/) — tenta seguir o redirecionamento
-        url_final = resolver_link_curto(texto)
+        # Pode ser um link curto (meli.la, /sec/) — segue o redirecionamento
+        url_final, html_pagina = resolver_link_curto(texto)
         item_id = extrair_item_id(url_final)
+        if not item_id and html_pagina:
+            # Às vezes o ID só aparece dentro do conteúdo da página, não na URL final
+            item_id = extrair_item_id(html_pagina)
 
     if not item_id:
         await update.message.reply_text(
